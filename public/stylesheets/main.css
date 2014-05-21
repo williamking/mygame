@@ -1,0 +1,32 @@
+body {
+  text-align: center;
+  background-image: url("../background");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+body h1 {
+  font-family: fantasy;
+  font-size: 50px;
+}
+body #frame {
+  background-color: white;
+  opacity: 0.3;
+}
+body #start {
+  display: "inline-block";
+}
+body #messages {
+  margin: 10 auto;
+  position: relative;
+  width: 600px;
+  height: 300px;
+  border: 1px solid #EEEEEE;
+  padding: 8px;
+  display: block;
+}
+body #messages p {
+  text-align: left;
+}
+body #input {
+  width: 200px;
+}
