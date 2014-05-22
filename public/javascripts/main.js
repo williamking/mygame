@@ -1,7 +1,7 @@
 var frame = document.getElementById("frame");
 var context = frame.getContext("2d");
 context.strokestyle = "red";
-var socket = io.connect('http://172.18.182.25:3000');
+var socket = io.connect('http://172.18.43.127:3000');
 var power = 0;
 
 function bind(obj, func) {
@@ -196,6 +196,5 @@ socket.on('draw', function(data) {
 });
 
 socket.on('start', function() {
-  alert(5);
   setInterval(redraw, 10);
 });

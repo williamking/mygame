@@ -322,8 +322,9 @@ io.sockets.on('connection', function (socket) {
     if ((player2.online) && (ip == player2.ip)) {
       if (data == 37) {
         player2.move(-30);
+        console.log('fgf');
       }
-      if (data == 37) {
+      if (data == 39) {
         player2.move(30);
       }
     } 
