@@ -1,12 +1,29 @@
 var frame = document.getElementById("frame");
 var context = frame.getContext("2d");
 context.strokestyle = "red";
-var socket = io.connect('http://172.18.43.127:3000');
+var socket = io.connect('http://172.18.182.26:3000');
 var power = 0;
+var comments = new Array();
 
 function bind(obj, func) {
   return function (event) {
     func.call(obj, event);
+  }
+}
+
+function visitor(name, comment, x, y) {
+  this.name = name;
+  this.comment = comment;
+  this.x = x;
+  this.y = y;
+  this.id = 0;
+}
+
+visitor.prototype = {
+  draw: function() {
+    if (this.x >= 600) return;
+    context.fillStyle = "red";
+    context.fillText(this.name + ": " + this.comment, this.x, this.y);
   }
 }
 
@@ -130,7 +147,7 @@ player2 = new user;
 
 
 $("#bt1").click(function(event) {
-  var text = event.currentTarget.previousSibling.previousSibling.value;
+  var text = event.currentTarget.previousSibling.value;
   if (text == "") {
     alert("Please write your name!");
       return;
@@ -139,7 +156,7 @@ $("#bt1").click(function(event) {
 });
 
 $("#bt2").click(function(event) {
-  var text = event.currentTarget.previousSibling.previousSibling.value;
+  var text = event.currentTarget.previousSibling.value;
   if (text == "") {
     alert("Please write your name!");
       return;
@@ -188,13 +205,30 @@ socket.on('updateComment', function(data) {
   }
 });
 
+socket.on('updateRunningComment', function(data) {
+  for (i in data) {
+    comments[i] = new visitor(data[i].name, data[i].comment, data[i].x, data[i].y);
+  }
+});
+
 socket.on('draw', function(data) {
   context.clearRect(0, 0, 600, 300);
   player1.draw();
   player2.draw();
   theBall.draw();
+  for (i in comments) {
+    comments[i].draw();
+  }
 });
 
 socket.on('start', function() {
+  $("#start").unbind("click");
   setInterval(redraw, 10);
+});
+
+socket.on('end', function(data) {
+  alert(data);
+  $("#start").click(function() {
+    socket.emit('start', "");
+  });
 });

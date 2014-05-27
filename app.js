@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var routes = require('./routes/index');
 var users = require('./routes/users');
+var jade = require('jade');
 
 var app = express();
 
@@ -68,22 +69,34 @@ user.prototype = {
       context.fillRect(this.x - 25, this.y - 10, 50, 20);
     }
   },
-  reset: function() {
+  reset: function(socket) {
     if (this.number == 1) {
-      this.x = parseInt($("#frame").css("width")) / 2;
-      this.y = parseInt($("#frame").css("height")) - 10;
+      this.x = 300;
+      this.y = 290;
     } else {
-      this.x = parseInt($("#frame").css("width")) / 2;
+      this.x = 300;
       this.y = 10;
     }
-    if (this.number == 1) socket.emit('update1', this);
-    else socket.emit('update2', this);
+    if (this.number == 1) socket.emit('change1', this);
+    else socket.emit('change2', this);
   }
 }
 
 function visitor() {
   this.name = "";
   this.comment = "";
+  this.x = 0;
+  this.y = Math.random() * 300;
+  this.speed = 200;
+  this.moving = 1;
+}
+
+visitor.prototype = {
+  move: function(inv) {
+    if (this.moving == 0) return;
+    this.x += this.speed * inv / 1000;
+    if (this.x >= 600) this.moving = 0;
+  }
 }
 
 function Ball(gSpeed, pSpeed, radius) {
@@ -99,7 +112,7 @@ function Ball(gSpeed, pSpeed, radius) {
 
 Ball.prototype = {
   constructor: Ball,
-  move: function () {
+  move: function (socket) {
     if (this.moving == false) return;
     this.x += this.pSpeed * 50 / 1000;
     if (this.x - this.radius < 0) {
@@ -112,19 +125,19 @@ Ball.prototype = {
     }
     this.y += this.gSpeed * 10 / 1000;
     if (this.y - this.radius < 0) {
-      alert("Winner is " + player1.name);
+      io.sockets.emit('end', "Winner is " + player1.name + "!");
       this.moving = false;
       this.reset(2);
-      player1.reset();
-      player2.reset();
+      player1.reset(socket);
+      player2.reset(socket);
       this.bind = 2;
     }
     if (this.y + this.radius > 300) {
-      alert("Winner is " + player2.name);
+      io.sockets.emit('end', "Winner is " + player2.name + "!");
       this.moving = false;
       this.reset(1);
-      player1.reset();
-      player2.reset();
+      player1.reset(socket);
+      player2.reset(socket);
       this.bind = 1;
     }
     if ((player1.y - this.y <= this.radius + 10) && (Math.abs(this.x - player1.x) <= this.radius + 25)) {
@@ -136,12 +149,12 @@ Ball.prototype = {
       this.waitFor = 1;
     }
   },
-  start: function() {
+  start: function(socket) {
     var that = this;
     var move = function () {
-      bind(that, that.move());
+      bind(that, that.move(socket));
     }
-    setInterval(move, 10);
+    interval = setInterval(move, 10);
   },
   draw: function () {
     context.beginPath();
@@ -151,25 +164,31 @@ Ball.prototype = {
   },
   reset: function(num) {
     if (num == 1) {
-      this.x = parseInt(600) / 2;
+      this.x = 300;
       this.y = 300 - this.radius - 20;
     } else {
       this.x = 300;
       this.y = 0 + this.radius + 20;
     }
+  },
+  end: function() {
+    clearInterval(interval);
   }
 };
 
-function gameStart() {
+function gameStart(socket) {
   if ((player1.online == 0) || (player2.online == 0)) return;
   console.log("The game has started.")
-  theBall.start();
+  theBall.start(socket);
 }
 
 
-var message = [], numOfComment = 0;
+var message = new Array(), numOfComment = 0;
 
-var player1 = new user(1, 300, 290), player2 = new user(2, 300, 10), theBall = new Ball(60, 60, 10);
+var player1 = new user(1, 300, 290), player2 = new user(2, 300, 10), theBall = new Ball(160, 120, 10);
+
+var interval;
+
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -188,7 +207,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', function (req, res) {
   // console.log('picture');
-  res.send("./public/index.html");
+  jade.renderFile('./public/index.jade', {name: "William"}, function(err, html) {
+    if (err) {
+      console.log("Fail to load!");
+      return;
+    }
+    res.send(html);
+  });
 })
 
 app.get('/background', function (req, res) {
@@ -244,11 +269,13 @@ io.sockets.on('connection', function (socket) {
       socket.emit('Error', "You don't have the authority!");
       return;
     }
-    if ((player1.online == 0) || (player2.online == 0)) {
+    // if ((player1.online == 0) || (player2.online == 0)) {
+    if (0) {
       socket.emit('Error', "The number of player is not enough!");
       return;
     }
-    gameStart();
+    gameStart(socket);
+    console.log("The game has started.")
     io.sockets.emit('start', "");
   });
 
@@ -289,13 +316,19 @@ io.sockets.on('connection', function (socket) {
   });
 
   socket.on('newMessage', function(data) {
+    console.log("Receive a new message.");
     var newVisitor = new visitor;
     newVisitor.comment = data;
     if (ip == player1.ip) newVisitor.name = player1.name;
     if (ip == player2.ip) newVisitor.name = player2.name;
     if ((ip != player1.ip) && (ip != player2.ip)) newVisitor.name = "打酱油的" + ip;
+    console.log("Add a new comment.");
     message[numOfComment] = newVisitor;
-    console.log(message);
+    var num = numOfComment;
+    var messageMove = function() {
+      bind(message[num], message[num].move(10));
+    }
+    setInterval(messageMove, 10);
     numOfComment++;
     io.sockets.emit('updateComment', message);
   });
@@ -322,7 +355,6 @@ io.sockets.on('connection', function (socket) {
     if ((player2.online) && (ip == player2.ip)) {
       if (data == 37) {
         player2.move(-30);
-        console.log('fgf');
       }
       if (data == 39) {
         player2.move(30);
@@ -334,6 +366,7 @@ io.sockets.on('connection', function (socket) {
     io.sockets.emit('change1', player1);
     io.sockets.emit('change2', player2);
     io.sockets.emit('ballUpdate', theBall);
+    io.sockets.emit('updateRunningComment', message);
     io.sockets.emit('draw', "");
   })
 
